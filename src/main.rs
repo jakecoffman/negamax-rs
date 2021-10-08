@@ -1,7 +1,7 @@
 use std::cmp::max;
 
 fn main() {
-    let mut game = Connect4::new();
+    let mut _game = Connect4::new();
     println!("Hello, world!");
 }
 
@@ -21,7 +21,7 @@ struct Connect4 {
 
 impl Connect4 {
     pub fn new() -> Self {
-        let mut table: [[[u64; 2]; HEIGHT as usize]; WIDTH as usize] = rand::random();
+        let table: [[[u64; 2]; HEIGHT as usize]; WIDTH as usize] = rand::random();
         Self {
             p1: 0,
             p2: 0,
@@ -188,16 +188,17 @@ impl State for Connect4 {
         self.cached_hash ^= self.current_is_p1;
         let (x, y) = reverse(index);
         if color == 1 {
-            self.p1 = clear(self.p1, index)
-            // TODO update hash
+            self.p1 = clear(self.p1, index);
+            self.cached_hash ^= self.zobrist_table[x as usize][y as usize][0];
         } else {
-            self.p2 = clear(self.p2, index)
+            self.p2 = clear(self.p2, index);
+            self.cached_hash ^= self.zobrist_table[x as usize][y as usize][1];
         }
         self.last_move = -1;
         self.num_moves -= 1;
     }
 
-    fn hash(&self, color: i8) {
+    fn hash(&self, _color: i8) {
         self.cached_hash;
     }
 }
