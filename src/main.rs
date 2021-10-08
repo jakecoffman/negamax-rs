@@ -1,4 +1,5 @@
-use std::cmp::max;
+use std::cmp::{max, min};
+use std::collections::HashMap;
 use std::io;
 use std::time::SystemTime;
 
@@ -18,6 +19,7 @@ fn main() {
     let _opp_id = parse_input!(inputs[1], i32); // if your index is 0, this will be 1, and vice versa
 
     let game = &mut Connect4::new();
+    let tt = &mut HashMap::new();
 
     // game loop
     loop {
@@ -52,7 +54,7 @@ fn main() {
             }
         }
 
-        let (best_move, value) = negamax(game, 3, 1);
+        let (best_move, value) = negamax(game, 4, 1, tt);
         eprintln!("bet move is {} value {}", best_move, value);
 
         game.play(best_move, 1);
@@ -136,13 +138,16 @@ impl State for Connect4 {
         next
     }
 
-    fn hash(&self, _color: i8) {
-        self.cached_hash;
+    fn hash(&self, _color: i64) -> u64 {
+        self.cached_hash
     }
 
     fn score(&mut self) -> i64 {
         if self.is_score_cached {
             return self.cached_score;
+        }
+        if self.num_moves < 7 {
+            return 0;
         }
         let mut horiz = 1;
         let mut vert = 1;
@@ -227,7 +232,7 @@ impl State for Connect4 {
     }
 
     fn is_game_over(&mut self) -> bool {
-        self.num_moves == WIDTH*HEIGHT || self.score() != 0
+        self.num_moves == WIDTH * HEIGHT || self.score() != 0
     }
 
     fn play(&mut self, index: i64, color: i64) {
@@ -263,7 +268,7 @@ impl State for Connect4 {
 
 pub trait State {
     fn next_moves(&self) -> Vec<i64>;
-    fn hash(&self, color: i8);
+    fn hash(&self, color: i64) -> u64;
 
     // score is mutable so you can cache it? seems odd.
     fn score(&mut self) -> i64;
@@ -272,15 +277,15 @@ pub trait State {
     fn undo(&mut self, index: i64, color: i64);
 }
 
-pub fn negamax(state: &mut impl State, max_depth: i64, color: i64) -> (i64, i64) {
-    let alpha = i64::MIN + 10;
-    let beta = i64::MAX-10;
+fn negamax(state: &mut impl State, max_depth: i64, color: i64, tt: &mut HashMap<u64,Entry>) -> (i64, i64) {
+    let alpha = i64::MIN + 1;
+    let beta = i64::MAX;
 
     let mut value = i64::MIN;
     let mut best_move: i64 = -1;
     for next_move in state.next_moves() {
         state.play(next_move, color);
-        let new_value = -_negamax(state, max_depth, -beta, -alpha, -color);
+        let new_value = -_negamax(state, max_depth, -beta, -alpha, -color, tt);
         state.undo(next_move, color);
         if new_value > value {
             value = new_value;
@@ -291,22 +296,66 @@ pub fn negamax(state: &mut impl State, max_depth: i64, color: i64) -> (i64, i64)
     return (best_move, value);
 }
 
-fn _negamax(state: &mut impl State, depth: i64, alpha: i64, beta: i64, color: i64) -> i64 {
+enum Flag {
+    Exact,
+    LowerBound,
+    UpperBound
+}
+
+struct Entry {
+    flag: Flag,
+    depth: i64,
+    value: i64
+}
+
+fn _negamax(state: &mut impl State, depth: i64, alpha: i64, beta: i64, color: i64, tt: &mut HashMap<u64,Entry>) -> i64 {
+    let alpha_orig = alpha;
+    let mut alpha = alpha;
+    let mut beta = beta;
+    let hash = state.hash(color);
+    match tt.get(&hash) {
+        Some(tt_entry) => {
+            if tt_entry.depth >= depth {
+                match tt_entry.flag {
+                    Flag::Exact => return tt_entry.value,
+                    Flag::LowerBound => alpha = max(alpha, tt_entry.value),
+                    Flag::UpperBound => beta = min(beta, tt_entry.value)
+                }
+                if alpha >= beta {
+                    return tt_entry.value
+                }
+            }
+        }
+        None => {}
+    }
+
     if depth == 0 || state.is_game_over() {
         return color * state.score();
     }
-    let mut alpha = alpha;
 
     let mut value = i64::MIN;
     for next_move in state.next_moves() {
         state.play(next_move, color);
-        value = max(value, -_negamax(state, depth - 1, -beta, -alpha, -color));
+        value = max(value, -_negamax(state, depth - 1, -beta, -alpha, -color, tt));
         state.undo(next_move, color);
         alpha = max(alpha, value);
         if alpha >= beta {
             break;
         }
     }
+
+    let tt_entry = Entry{
+        flag: if value <= alpha_orig {
+            Flag::UpperBound
+        } else if value >= beta {
+            Flag::LowerBound
+        } else {
+            Flag::Exact
+        },
+        depth,
+        value
+    };
+    tt.insert(hash, tt_entry);
 
     return value;
 }
