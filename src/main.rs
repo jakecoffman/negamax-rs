@@ -25,7 +25,7 @@ fn main() {
     loop {
         let mut input_line = String::new();
         io::stdin().read_line(&mut input_line).unwrap();
-        let _turn_index = parse_input!(input_line, i32); // starts from 0; As the game progresses, first player gets [0,2,4,...] and second player gets [1,3,5,...]
+        let turn_index = parse_input!(input_line, i32); // starts from 0; As the game progresses, first player gets [0,2,4,...] and second player gets [1,3,5,...]
         for _i in 0..7 as usize {
             let mut input_line = String::new();
             io::stdin().read_line(&mut input_line).unwrap();
@@ -54,13 +54,32 @@ fn main() {
             }
         }
 
-        let (best_move, value) = negamax(game, 3, 1, tt);
-        eprintln!("bet move is {} value {}", best_move, value);
+        let mut best_move = -1;
+        let mut best_value = -1000000000;
+        let limit = if turn_index == 0 {
+            500
+        } else {
+            50
+        };
+        let mut max_depth = 0;
+        for i in 2..10 {
+            if now.elapsed().unwrap().as_millis() > limit {
+                break;
+            }
+            max_depth = i;
+            let (le_move, value) = negamax(game, i, 1, tt);
+            if value > best_value {
+                best_move = le_move;
+                best_value = value;
+            }
+        }
+        eprintln!("best move is {} value {}", best_move, best_value);
+        eprintln!("depth {}", max_depth);
 
         game.play(best_move, 1);
 
         let (x, _) = reverse(best_move);
-        eprintln!("Turn took {:?}", now.elapsed());
+        eprintln!("Turn took {:?}", now.elapsed().unwrap());
         println!("{}", x);
     }
 }
