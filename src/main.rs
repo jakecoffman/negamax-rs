@@ -1,5 +1,6 @@
 use std::cmp::max;
 use std::io;
+use std::time::SystemTime;
 
 macro_rules! parse_input {
     ($x:expr, $t:ident) => ($x.trim().parse::<$t>().unwrap())
@@ -16,7 +17,7 @@ fn main() {
     let _my_id = parse_input!(inputs[0], i32); // 0 or 1 (Player 0 plays first)
     let _opp_id = parse_input!(inputs[1], i32); // if your index is 0, this will be 1, and vice versa
 
-    let game: &mut Connect4 = &mut Connect4::new();
+    let game = &mut Connect4::new();
 
     // game loop
     loop {
@@ -39,9 +40,10 @@ fn main() {
         let mut input_line = String::new();
         io::stdin().read_line(&mut input_line).unwrap();
         let opp_previous_action = parse_input!(input_line, i64); // opponent's previous chosen column index (will be -1 for first player in the first turn)
+        let now = SystemTime::now();
 
         if opp_previous_action > -1 {
-            for y in HEIGHT-1..0 {
+            for y in (0..HEIGHT).rev() {
                 let i = index(opp_previous_action, y);
                 if !is_set(game.p1, i) && !is_set(game.p2, i) {
                     game.play(index(opp_previous_action, y), -1);
@@ -50,12 +52,13 @@ fn main() {
             }
         }
 
-        let (best_move, value) = negamax(game, 10, 1);
-        println!("bet move is {} value {}", best_move, value);
+        let (best_move, value) = negamax(game, 3, 1);
+        eprintln!("bet move is {} value {}", best_move, value);
 
         game.play(best_move, 1);
 
         let (x, _) = reverse(best_move);
+        eprintln!("Turn took {:?}", now.elapsed());
         println!("{}", x);
     }
 }
@@ -123,7 +126,7 @@ impl State for Connect4 {
     fn next_moves(&self) -> Vec<i64> {
         let mut next = Vec::new();
         for x in 0..WIDTH {
-            for y in HEIGHT - 1..0 {
+            for y in (0..HEIGHT).rev() {
                 let i = index(x, y);
                 if !is_set(self.p1, i) && !is_set(self.p2, i) {
                     next.push(i);
@@ -270,8 +273,8 @@ pub trait State {
 }
 
 pub fn negamax(state: &mut impl State, max_depth: i64, color: i64) -> (i64, i64) {
-    let alpha = i64::MIN + 1;
-    let beta = i64::MAX;
+    let alpha = i64::MIN + 10;
+    let beta = i64::MAX-10;
 
     let mut value = i64::MIN;
     let mut best_move: i64 = -1;
