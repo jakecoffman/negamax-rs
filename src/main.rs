@@ -54,7 +54,7 @@ fn main() {
             }
         }
 
-        let (best_move, value) = negamax(game, 4, 1, tt);
+        let (best_move, value) = negamax(game, 3, 1, tt);
         eprintln!("bet move is {} value {}", best_move, value);
 
         game.play(best_move, 1);
