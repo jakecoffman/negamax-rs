@@ -1,8 +1,63 @@
 use std::cmp::max;
+use std::io;
 
+macro_rules! parse_input {
+    ($x:expr, $t:ident) => ($x.trim().parse::<$t>().unwrap())
+}
+
+/**
+ * Drop chips in the columns.
+ * Connect at least 4 of your chips in any direction to win.
+ **/
 fn main() {
-    let mut _game = Connect4::new();
-    println!("Hello, world!");
+    let mut input_line = String::new();
+    io::stdin().read_line(&mut input_line).unwrap();
+    let inputs = input_line.split(" ").collect::<Vec<_>>();
+    let _my_id = parse_input!(inputs[0], i32); // 0 or 1 (Player 0 plays first)
+    let _opp_id = parse_input!(inputs[1], i32); // if your index is 0, this will be 1, and vice versa
+
+    let game: &mut Connect4 = &mut Connect4::new();
+
+    // game loop
+    loop {
+        let mut input_line = String::new();
+        io::stdin().read_line(&mut input_line).unwrap();
+        let _turn_index = parse_input!(input_line, i32); // starts from 0; As the game progresses, first player gets [0,2,4,...] and second player gets [1,3,5,...]
+        for _i in 0..7 as usize {
+            let mut input_line = String::new();
+            io::stdin().read_line(&mut input_line).unwrap();
+            let _board_row = input_line.trim().to_string(); // one row of the board (from top to bottom)
+        }
+        let mut input_line = String::new();
+        io::stdin().read_line(&mut input_line).unwrap();
+        let num_valid_actions = parse_input!(input_line, i32); // number of unfilled columns in the board
+        for _i in 0..num_valid_actions as usize {
+            let mut input_line = String::new();
+            io::stdin().read_line(&mut input_line).unwrap();
+            let _action = parse_input!(input_line, i32); // a valid column index into which a chip can be dropped
+        }
+        let mut input_line = String::new();
+        io::stdin().read_line(&mut input_line).unwrap();
+        let opp_previous_action = parse_input!(input_line, i64); // opponent's previous chosen column index (will be -1 for first player in the first turn)
+
+        if opp_previous_action > -1 {
+            for y in HEIGHT-1..0 {
+                let i = index(opp_previous_action, y);
+                if !is_set(game.p1, i) && !is_set(game.p2, i) {
+                    game.play(index(opp_previous_action, y), -1);
+                    break;
+                }
+            }
+        }
+
+        let (best_move, value) = negamax(game, 10, 1);
+        println!("bet move is {} value {}", best_move, value);
+
+        game.play(best_move, 1);
+
+        let (x, _) = reverse(best_move);
+        println!("{}", x);
+    }
 }
 
 struct Connect4 {
@@ -65,8 +120,21 @@ fn reverse(i: i64) -> (i64, i64) {
 }
 
 impl State for Connect4 {
-    fn is_game_over(&self) -> bool {
-        todo!()
+    fn next_moves(&self) -> Vec<i64> {
+        let mut next = Vec::new();
+        for x in 0..WIDTH {
+            for y in HEIGHT - 1..0 {
+                let i = index(x, y);
+                if !is_set(self.p1, i) && !is_set(self.p2, i) {
+                    next.push(i);
+                }
+            }
+        }
+        next
+    }
+
+    fn hash(&self, _color: i8) {
+        self.cached_hash;
     }
 
     fn score(&mut self) -> i64 {
@@ -155,17 +223,8 @@ impl State for Connect4 {
         return self.cached_score;
     }
 
-    fn next_moves(&self) -> Vec<i64> {
-        let mut next = Vec::new();
-        for x in 0..WIDTH {
-            for y in HEIGHT - 1..0 {
-                let i = index(x, y);
-                if !is_set(self.p1, i) && !is_set(self.p2, i) {
-                    next.push(i);
-                }
-            }
-        }
-        next
+    fn is_game_over(&mut self) -> bool {
+        self.num_moves == WIDTH*HEIGHT || self.score() != 0
     }
 
     fn play(&mut self, index: i64, color: i64) {
@@ -197,19 +256,17 @@ impl State for Connect4 {
         self.last_move = -1;
         self.num_moves -= 1;
     }
-
-    fn hash(&self, _color: i8) {
-        self.cached_hash;
-    }
 }
 
 pub trait State {
-    fn is_game_over(&self) -> bool;
-    fn score(&mut self) -> i64;
     fn next_moves(&self) -> Vec<i64>;
+    fn hash(&self, color: i8);
+
+    // score is mutable so you can cache it? seems odd.
+    fn score(&mut self) -> i64;
+    fn is_game_over(&mut self) -> bool;
     fn play(&mut self, index: i64, color: i64);
     fn undo(&mut self, index: i64, color: i64);
-    fn hash(&self, color: i8);
 }
 
 pub fn negamax(state: &mut impl State, max_depth: i64, color: i64) -> (i64, i64) {
